@@ -1,0 +1,10 @@
+yfinance
+numpy
+pandas
+matplotlib
+arch
+sphinx
+sphinx_rtd_theme
+nbsphinx
+myst-parser
+doit
