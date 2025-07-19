@@ -3,26 +3,27 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-
+import warnings
 
 def download_data(ticker='SPY', start='2005-01-01', end=None):
-    """
-    Downloads daily adjusted close prices for a given ticker.
-    Returns a DataFrame with log returns.
-    """
-    df = yf.download(ticker, start=start, end=end)
-    df.columns = [col[0] for col in df.columns]  # Keep only the first level: 'price'
-    df = df[['Close']].rename(columns={'Close': 'price'})
-    df.dropna(inplace=True)
-    print(df.columns)
-    print(df.index.name)
-    print(df.head())
-    df['log_return'] = np.log(df['price'] / df['price'].shift(1))
+    df = yf.download(ticker, start=start, end=end, progress=False)
 
-    # Mask out invalid values (e.g., price <= 0 or resulting log values being NaN or inf)
-    df.loc[(df['price'] <= 0) | (df['price'].shift(1) <= 0), 'log_return'] = pd.NA
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = ['_'.join(filter(None, col)).strip() for col in df.columns]
+
+    # ✅ Rename adjusted close column for consistency
+    if 'Close_SPY' in df.columns:
+        df.rename(columns={'Close_SPY': 'price'}, inplace=True)
+    elif 'Close' in df.columns:
+        df.rename(columns={'Close': 'price'}, inplace=True)
+    else:
+        raise ValueError("Adjusted Close column not found in DataFrame.")
+
+    # Compute log returns
+    df['log_return'] = np.log(df['price'] / df['price'].shift(1))
     df.dropna(inplace=True)
     return df
+
 
 
 def save_to_csv(df, path='data/spy_returns.csv'):
@@ -33,4 +34,14 @@ def load_from_csv(path='data/spy_returns.csv'):
     df = pd.read_csv(path, index_col=0, parse_dates=True)
     return df
 
-# df = download_data('SPY', start='2010-01-01')
+if __name__ == "__main__":
+    df_2 = download_data('SPY', start='2010-01-01')
+    
+    if df_2.empty:
+        print("⚠️ WARNING: Data download failed — no file saved.")
+    else:
+        from pathlib import Path
+        Path("data").mkdir(exist_ok=True)
+        save_to_csv(df_2)
+        print("✅ Data saved to data/spy_returns.csv")
+
